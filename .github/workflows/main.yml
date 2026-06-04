@@ -62,7 +62,7 @@ jobs:
         env:
           FORCE_PUSH_MESSAGE: ${{ github.event.inputs.force_push_message }}
           GITHUB_ACTIONS: ${{github.actions}}
-          URL: "http://211.64.28.123/jwglxt/"
+          URL: ${{ secrets.URL }}
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
           TOKEN: ${{ secrets.TOKEN }}
