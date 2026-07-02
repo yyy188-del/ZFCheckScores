@@ -1,4 +1,5 @@
 import os
+import random
 import re
 import sys
 import time
@@ -151,14 +152,17 @@ def login(url, username=None, password=None, session=None, cookies=None):
             """
         elif lgn["code"] != 1000:
             # 登录失败但非验证码
-            if attempts == 1:
+            if attempts == 5:
                 pprint(lgn)
                 run_log = lgn["msg"]
                 if github_actions:
                     write_github_summary(run_log, lgn["code"])
 
-            # 重试
-            time.sleep(1)
+            # 指数退避 + 随机抖动，降低被反爬虫识别概率
+            base_delay = 5 - attempts
+            delay = base_delay + random.uniform(1, 3)
+            print(f"[登录重试] 失败，{delay:.1f}秒后第 {5 - attempts + 1} 次重试...", flush=True)
+            time.sleep(delay)
             attempts -= 1
             continue
 
