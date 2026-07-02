@@ -61,13 +61,22 @@ class Client:
             # 登录页
             req_csrf = self.sess.get(self.login_url, headers=self.headers, timeout=self.timeout)
             if req_csrf.status_code != 200:
+                print(f"[登录诊断] 获取登录页失败，HTTP状态码: {req_csrf.status_code}")
+                print(f"[登录诊断] 响应内容: {req_csrf.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
             # 获取csrf_token
             doc = pq(req_csrf.text)
             csrf_token = doc("#csrftoken").attr("value")
+            if not csrf_token:
+                print(f"[登录诊断] 未找到csrf_token，响应内容: {req_csrf.text[:500]}")
+                return {"code": 2333, "msg": "请重试，若多次失败可能是系统错误维护或需更新接口"}
             pre_cookies = self.sess.cookies.get_dict()
             # 获取publicKey并加密密码
-            req_pubkey = self.sess.get(self.key_url, headers=self.headers, timeout=self.timeout).json()
+            try:
+                req_pubkey = self.sess.get(self.key_url, headers=self.headers, timeout=self.timeout).json()
+            except (exceptions.RequestException, json.decoder.JSONDecodeError) as e:
+                print(f"[登录诊断] 获取publicKey失败: {type(e).__name__}: {e}")
+                raise
             modulus = req_pubkey["modulus"]
             exponent = req_pubkey["exponent"]
             if str(doc("input#yzm")) == "":
@@ -142,7 +151,8 @@ class Client:
             exceptions.RequestException,
             json.decoder.JSONDecodeError,
             AttributeError,
-        ):
+        ) as e:
+            print(f"[登录诊断] 异常类型: {type(e).__name__}, 异常信息: {e}")
             traceback.print_exc()
             return {
                 "code": 2333,
