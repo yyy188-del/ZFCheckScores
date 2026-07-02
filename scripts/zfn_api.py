@@ -222,11 +222,17 @@ class Client:
                 timeout=self.timeout,
             )
             if req_info.status_code != 200:
+                print(f"[获取个人信息诊断] HTTP状态码异常: {req_info.status_code}")
+                print(f"[获取个人信息诊断] 响应内容: {req_info.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
             doc = pq(req_info.text)
             if doc("h5").text() == "用户登录":
                 return {"code": 1006, "msg": "未登录或已过期，请重新登录"}
-            info = req_info.json()
+            try:
+                info = req_info.json()
+            except json.decoder.JSONDecodeError:
+                print(f"[获取个人信息诊断] JSON解析失败，响应内容: {req_info.text[:500]}")
+                raise
             if info is None:
                 return self._get_info()
             result = {
@@ -273,6 +279,8 @@ class Client:
         try:
             req_info = self.sess.get(url, headers=self.headers, cookies=self.cookies, timeout=self.timeout)
             if req_info.status_code != 200:
+                print(f"[获取个人信息诊断] HTTP状态码异常: {req_info.status_code}")
+                print(f"[获取个人信息诊断] 响应内容: {req_info.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
             doc = pq(req_info.text)
             if doc("h5").text() == "用户登录":
@@ -431,13 +439,19 @@ class Client:
                 timeout=self.timeout,
             )
             if req_grade.status_code != 200:
+                print(f"[获取成绩诊断] HTTP状态码异常: {req_grade.status_code}")
+                print(f"[获取成绩诊断] 响应内容: {req_grade.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
 
             doc = pq(req_grade.text)
             if doc("h5").text() == "用户登录":
                 return {"code": 1006, "msg": "未登录或已过期，请重新登录"}
 
-            grade = req_grade.json()
+            try:
+                grade = req_grade.json()
+            except json.decoder.JSONDecodeError:
+                print(f"[获取成绩诊断] JSON解析失败，响应内容: {req_grade.text[:500]}")
+                raise
             grade_items = grade.get("items")
             if not grade_items:
                 return {"code": 1005, "msg": "获取内容为空"}
@@ -927,13 +941,19 @@ class Client:
             )
 
             if req_selected.status_code != 200:
+                print(f"[获取已选课程诊断] HTTP状态码异常: {req_selected.status_code}")
+                print(f"[获取已选课程诊断] 响应内容: {req_selected.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
 
             doc = pq(req_selected.text)
             if doc("h5").text() == "用户登录":
                 return {"code": 1006, "msg": "未登录或已过期，请重新登录"}
 
-            selected = req_selected.json()
+            try:
+                selected = req_selected.json()
+            except json.decoder.JSONDecodeError:
+                print(f"[获取已选课程诊断] JSON解析失败，响应内容: {req_selected.text[:500]}")
+                raise
             result = {
                 "year": year,
                 "term": term_num,
@@ -1168,14 +1188,27 @@ class Client:
                 timeout=self.timeout,
             )
             if req_select.status_code != 200:
+                print(f"[选课诊断] HTTP状态码异常: {req_select.status_code}")
+                print(f"[选课诊断] 响应内容: {req_select.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
             doc = pq(req_select.text)
             if doc("h5").text() == "用户登录":
                 return {"code": 1006, "msg": "未登录或已过期，请重新登录"}
-            result = req_select.json()
+            try:
+                result = req_select.json()
+            except json.decoder.JSONDecodeError:
+                print(f"[选课诊断] JSON解析失败，响应内容: {req_select.text[:500]}")
+                result = {"status": re.findall(r"(\d+)", req_select.text)[0]}
             return {"code": 1000, "msg": "选课成功", "data": result}
         except exceptions.Timeout:
             return {"code": 1003, "msg": "选课超时"}
+        except IndexError:
+            traceback.print_exc()
+            print(f"[选课诊断] 正则匹配失败，响应内容: {req_select.text[:500]}")
+            return {
+                "code": 2333,
+                "msg": "请重试，若多次失败可能是系统错误维护或需更新接口",
+            }
         except (
             exceptions.RequestException,
             json.decoder.JSONDecodeError,
@@ -1209,6 +1242,8 @@ class Client:
                 timeout=self.timeout,
             )
             if req_cancel.status_code != 200:
+                print(f"[退课诊断] HTTP状态码异常: {req_cancel.status_code}")
+                print(f"[退课诊断] 响应内容: {req_cancel.text[:500]}")
                 return {"code": 2333, "msg": "教务系统挂了"}
             doc = pq(req_cancel.text)
             if doc("h5").text() == "用户登录":
@@ -1216,7 +1251,14 @@ class Client:
             result = {"status": re.findall(r"(\d+)", req_cancel.text)[0]}
             return {"code": 1000, "msg": "退课成功", "data": result}
         except exceptions.Timeout:
-            return {"code": 1003, "msg": "选课超时"}
+            return {"code": 1003, "msg": "退课超时"}
+        except IndexError:
+            traceback.print_exc()
+            print(f"[退课诊断] 正则匹配失败，响应内容: {req_cancel.text[:500]}")
+            return {
+                "code": 2333,
+                "msg": "请重试，若多次失败可能是系统错误维护或需更新接口",
+            }
         except (
             exceptions.RequestException,
             json.decoder.JSONDecodeError,
@@ -1229,7 +1271,7 @@ class Client:
             }
         except Exception as e:
             traceback.print_exc()
-            return {"code": 999, "msg": f"选课时未记录的错误：{str(e)}"}
+            return {"code": 999, "msg": f"退课时未记录的错误：{str(e)}"}
 
     # ============= utils =================
 
